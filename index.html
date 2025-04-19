@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tic-Tac-Toe</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #007cf0, #00dfd8);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: white;
+      font-size: 3rem;
+      margin: 50px 0 30px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+      width: 90%;
+      max-width: 1000px;
+      padding: 20px;
+    }
+
+    .mode-card {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mode-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .mode-card h2 {
+      margin-bottom: 15px;
+      color: #222;
+    }
+
+    .mode-card button {
+      padding: 10px 20px;
+      font-weight: bold;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .computer { background: linear-gradient(to right, #ff6ec4, #7873f5); }
+    .device { background: linear-gradient(to right, #38ef7d, #11998e); }
+    .multiplayer { background: linear-gradient(to right, #56ccf2, #2f80ed); }
+    .friends { background: linear-gradient(to right, #f7971e, #ffd200); }
+
+    .game-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 5px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background-color: white;
+      color: black;
+      border: 2px solid #333;
+      font-size: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .cell.winning {
+      background-color: #ffcc00;
+      color: #fff;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+      color: white;
+    }
+
+    #backBtn, #resetBtn {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background: #ff9800;
+      color: white;
+      cursor: pointer;
+    }
+
+    #backBtn:hover, #resetBtn:hover {
+      background: #e65100;
+    }
+
+    #comingSoonModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px 50px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 20px;
+    }
+
+    .modal-content button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #007cf0;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tic-Tac-Toe</h1>
+  <div id="menu" class="mode-grid">
+    <div class="mode-card">
+      <h2>V/S Computer</h2>
+      <button class="computer" onclick="startGame('ai')">COMPUTER</button>
+    </div>
+    <div class="mode-card">
+      <h2>Pass Device</h2>
+      <button class="device" onclick="startGame('pass')">DEVICE</button>
+    </div>
+    <div class="mode-card">
+      <h2>Online Multiplayer</h2>
+      <button class="multiplayer" onclick="showComingSoon()">MULTIPLAYER</button>
+    </div>
+    <div class="mode-card">
+      <h2>Play with Friends</h2>
+      <button class="friends" onclick="showComingSoon()">FRIENDS</button>
+    </div>
+  </div>
+
+  <div id="game" class="game-container">
+    <div class="board" id="board"></div>
+    <div id="status"></div>
+    <button id="resetBtn" onclick="resetGame()">Reset</button>
+    <button id="backBtn" onclick="goBack()">Back</button>
+  </div>
+
+  <div id="comingSoonModal">
+    <div class="modal-content">
+      <p>This feature is coming soon!</p>
+      <button onclick="closeComingSoon()">OK</button>
+    </div>
+  </div>
+
+  <script>
+    let mode = null;
+    let currentPlayer = 'X';
+    let gameActive = true;
+    let gameState = Array(9).fill('');
+
+    const winCombos = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    function startGame(selectedMode) {
+      mode = selectedMode;
+      document.getElementById('menu').style.display = 'none';
+      document.getElementById('game').style.display = 'flex';
+      resetGame();
+    }
+
+    function createBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      gameState.forEach((val, idx) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.index = idx;
+        cell.textContent = val;
+        cell.addEventListener('click', handleClick);
+        board.appendChild(cell);
+      });
+    }
+
+    function handleClick(e) {
+      const idx = e.target.dataset.index;
+      if (!gameActive || gameState[idx]) return;
+      gameState[idx] = currentPlayer;
+      createBoard();
+      if (checkWinner()) {
+        document.getElementById('status').textContent = `Player ${currentPlayer} wins!`;
+        gameActive = false;
+        return;
+      }
+      if (!gameState.includes('')) {
+        document.getElementById('status').textContent = "It's a draw!";
+        gameActive = false;
+        return;
+      }
+      currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+      document.getElementById('status').textContent = `Player ${currentPlayer}'s turn`;
+      if (mode === 'ai' && currentPlayer === 'O') setTimeout(aiMove, 500);
+    }
+
+    function aiMove() {
+      for (let i = 0; i < gameState.length; i++) {
+        if (gameState[i] === '') {
+          gameState[i] = 'O';
+          currentPlayer = 'X';
+          createBoard();
+          checkWinner();
+          return;
+        }
+      }
+    }
+
+    function checkWinner() {
+      for (const [a, b, c] of winCombos) {
+        if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
+          const cells = document.querySelectorAll('.cell');
+          cells[a].classList.add('winning');
+          cells[b].classList.add('winning');
+          cells[c].classList.add('winning');
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function resetGame() {
+      currentPlayer = 'X';
+      gameActive = true;
+      gameState = Array(9).fill('');
+      createBoard();
+      document.getElementById('status').textContent = `Player X's turn`;
+    }
+
+    function goBack() {
+      document.getElementById('game').style.display = 'none';
+      document.getElementById('menu').style.display = 'grid';
+    }
+
+    function showComingSoon() {
+      document.getElementById('comingSoonModal').style.display = 'flex';
+    }
+
+    function closeComingSoon() {
+      document.getElementById('comingSoonModal').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
